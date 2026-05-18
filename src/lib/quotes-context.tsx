@@ -155,7 +155,7 @@ export function QuotesProvider({
   const updateQuote: Ctx["updateQuote"] = useCallback(
     async (id, patch) => {
       if (!isAdmin) return;
-      const next: Record<string, unknown> = { ...patch };
+      const next: Partial<AddQuoteInput> = { ...patch };
       if (patch.quote && !patch.language) next.language = detectLanguage(patch.quote);
       const { data, error } = await supabase
         .from("quotes")
