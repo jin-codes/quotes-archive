@@ -1,4 +1,7 @@
 # 당신은 이 quotes-archive를 통해서 명언을 확인할 수 있습니다. 
+# 이 파일은 GitHub 에 올라오지 않았으며, 아래 링크를 확인해 주시기 바랍니다.
+
+[quotes-archive URL:](https://quotes-archive.lovable.app/#)
 
 1. 당신은 명언을 아래에서 확인할 수 있으며, 위 **surprise me** 버튼을 통해서 명언 셔플 기능을 사용할 수 있습니다.
 2. 당신이 원하는 명언을 **favorite** 에 저장하고, 그것들만 셔플하는 기능도 사용할 수 있습니다.
