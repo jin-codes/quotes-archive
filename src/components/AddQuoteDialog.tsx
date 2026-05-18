@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useQuotes } from "@/lib/quotes-context";
+import { detectLanguage } from "@/lib/quotes-store";
 
 const SUGGESTED = ["Philosophy", "Literature", "Economics", "Science", "Art", "Life"];
 
@@ -20,9 +28,13 @@ export function AddQuoteDialog() {
     e.preventDefault();
     if (!quote.trim()) return;
     addQuote({ quote: quote.trim(), author: author.trim(), category: category.trim() });
-    setQuote(""); setAuthor(""); setCategory("");
+    setQuote("");
+    setAuthor("");
+    setCategory("");
     setOpen(false);
   };
+
+  const previewLang = quote.trim() ? detectLanguage(quote) : null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -37,8 +49,17 @@ export function AddQuoteDialog() {
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="q">Quote</Label>
-            <Textarea id="q" value={quote} onChange={(e) => setQuote(e.target.value)} rows={4} placeholder="Something worth remembering…" required />
+            <Label htmlFor="q">
+              Quote {previewLang && <span className="ml-1 text-xs text-muted-foreground">· {previewLang}</span>}
+            </Label>
+            <Textarea
+              id="q"
+              value={quote}
+              onChange={(e) => setQuote(e.target.value)}
+              rows={4}
+              placeholder="Something worth remembering…"
+              required
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -47,14 +68,24 @@ export function AddQuoteDialog() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="c">Category</Label>
-              <Input id="c" list="cat-suggest" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Philosophy" />
+              <Input
+                id="c"
+                list="cat-suggest"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="Philosophy"
+              />
               <datalist id="cat-suggest">
-                {SUGGESTED.map((s) => <option key={s} value={s} />)}
+                {SUGGESTED.map((s) => (
+                  <option key={s} value={s} />
+                ))}
               </datalist>
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" className="rounded-full">Save quote</Button>
+            <Button type="submit" className="rounded-full">
+              Save quote
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
