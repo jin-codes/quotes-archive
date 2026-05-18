@@ -5,18 +5,14 @@ export type Quote = {
   quote: string;
   author: string;
   category: string;
-  favorite: boolean;
+  language: "ENG" | "KOR";
   date_added: string;
 };
 
-const COLUMNS = ["id", "quote", "author", "category", "favorite", "date_added"] as const;
+const COLUMNS = ["id", "quote", "author", "category", "language", "date_added"] as const;
 
-function toWorkbook(quotes: Quote[]) {
-  const rows = quotes.map((q) => ({ ...q, favorite: q.favorite ? "TRUE" : "FALSE" }));
-  const ws = XLSX.utils.json_to_sheet(rows, { header: COLUMNS as unknown as string[] });
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Quotes");
-  return wb;
+export function detectLanguage(text: string): "ENG" | "KOR" {
+  return /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(text) ? "KOR" : "ENG";
 }
 
 export function parseFromArrayBuffer(buf: ArrayBuffer): Omit<Quote, "id">[] {
@@ -25,17 +21,42 @@ export function parseFromArrayBuffer(buf: ArrayBuffer): Omit<Quote, "id">[] {
   if (!ws) return [];
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
   return rows
-    .map((r) => ({
-      quote: String(r.quote ?? "").trim(),
-      author: String(r.author ?? "").trim(),
-      category: String(r.category ?? "").trim(),
-      favorite: String(r.favorite ?? "").toUpperCase() === "TRUE" || r.favorite === true,
-      date_added: String(r.date_added ?? new Date().toISOString()),
-    }))
+    .map((r) => {
+      const quote = String(r.quote ?? "").trim();
+      const langRaw = String(r.language ?? "").toUpperCase();
+      const language: "ENG" | "KOR" =
+        langRaw === "ENG" || langRaw === "KOR" ? langRaw : detectLanguage(quote);
+      return {
+        quote,
+        author: String(r.author ?? "").trim(),
+        category: String(r.category ?? "").trim(),
+        language,
+        date_added: String(r.date_added ?? new Date().toISOString()),
+      };
+    })
     .filter((q) => q.quote.length > 0);
 }
 
-export function downloadXlsx(quotes: Quote[], filename = "quotes.xlsx") {
-  const wb = toWorkbook(quotes);
+export function downloadXlsx(
+  quotes: Quote[],
+  favoriteIds: Set<string>,
+  filename = "quotes.xlsx",
+) {
+  const rows = quotes.map((q) => ({
+    id: q.id,
+    quote: q.quote,
+    author: q.author,
+    category: q.category,
+    favorite: favoriteIds.has(q.id) ? "TRUE" : "FALSE",
+    language: q.language,
+    date_added: q.date_added,
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows, {
+    header: ["id", "quote", "author", "category", "favorite", "language", "date_added"],
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Quotes");
   XLSX.writeFile(wb, filename);
 }
+
+export { COLUMNS };
