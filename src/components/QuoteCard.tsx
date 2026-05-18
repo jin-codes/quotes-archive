@@ -5,10 +5,14 @@ import { Badge } from "@/components/ui/badge";
 
 export function QuoteCard({
   quote,
+  favorite,
+  canDelete,
   onToggleFavorite,
   onRemove,
 }: {
   quote: Quote;
+  favorite: boolean;
+  canDelete: boolean;
   onToggleFavorite: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
@@ -18,37 +22,44 @@ export function QuoteCard({
       <div className="mt-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">{quote.author || "Unknown"}</p>
-          {quote.category && (
-            <Badge variant="secondary" className="mt-1 rounded-full bg-accent/60 text-accent-foreground">
-              {quote.category}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {quote.category && (
+              <Badge variant="secondary" className="rounded-full bg-accent/60 text-accent-foreground">
+                {quote.category}
+              </Badge>
+            )}
+            <Badge variant="secondary" className="rounded-full bg-secondary/60 text-secondary-foreground">
+              {quote.language}
             </Badge>
-          )}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onToggleFavorite(quote.id)}
-            aria-label={quote.favorite ? "Unfavorite" : "Favorite"}
+            aria-label={favorite ? "Unfavorite" : "Favorite"}
             className="rounded-full"
           >
             <Heart
               className={
-                quote.favorite
+                favorite
                   ? "fill-[oklch(0.78_0.13_20)] text-[oklch(0.78_0.13_20)]"
                   : "text-muted-foreground"
               }
             />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onRemove(quote.id)}
-            aria-label="Delete"
-            className="rounded-full text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 />
-          </Button>
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onRemove(quote.id)}
+              aria-label="Delete"
+              className="rounded-full text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 />
+            </Button>
+          )}
         </div>
       </div>
     </article>
