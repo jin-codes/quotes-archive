@@ -23,6 +23,20 @@ type AddQuoteInput = {
   language?: "ENG" | "KOR";
 };
 
+export type PendingItem = {
+  id: string;
+  submitter_id: string;
+  submitter_email: string;
+  type: "new" | "edit";
+  original_quote_id: string | null;
+  quote: string;
+  author: string;
+  category: string;
+  language: "ENG" | "KOR";
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+};
+
 type Ctx = {
   quotes: Quote[];
   loading: boolean;
@@ -31,12 +45,20 @@ type Ctx = {
   favoriteIds: Set<string>;
   isFavorite: (id: string) => boolean;
   toggleFavorite: (id: string) => Promise<void>;
-  addQuote: (q: AddQuoteInput) => Promise<void>;
-  updateQuote: (id: string, patch: Partial<AddQuoteInput>) => Promise<void>;
+  /** Returns true if applied directly, false if queued as pending. */
+  addQuote: (q: AddQuoteInput) => Promise<"applied" | "pending" | "denied">;
+  updateQuote: (
+    id: string,
+    patch: AddQuoteInput,
+  ) => Promise<"applied" | "pending" | "denied">;
   removeQuote: (id: string) => Promise<void>;
   importFile: (file: File) => Promise<void>;
   exportFile: () => void;
   signOut: () => Promise<void>;
+  pending: PendingItem[];
+  refreshPending: () => Promise<void>;
+  approvePending: (id: string) => Promise<void>;
+  rejectPending: (id: string) => Promise<void>;
 };
 
 const QuotesContext = createContext<Ctx | null>(null);
@@ -53,6 +75,7 @@ export function QuotesProvider({
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [pending, setPending] = useState<PendingItem[]>([]);
 
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
@@ -130,8 +153,25 @@ export function QuotesProvider({
 
   const addQuote: Ctx["addQuote"] = useCallback(
     async (q) => {
-      if (!user || !isAdmin) return;
+      if (!user) return "denied";
       const language = q.language ?? detectLanguage(q.quote);
+      if (!isAdmin) {
+        const { error } = await supabase.from("pending_quotes" as never).insert({
+          submitter_id: user.id,
+          submitter_email: user.email ?? "",
+          type: "new",
+          original_quote_id: null,
+          quote: q.quote,
+          author: q.author,
+          category: q.category,
+          language,
+        } as never);
+        if (error) {
+          console.error(error);
+          return "denied";
+        }
+        return "pending";
+      }
       const { data, error } = await supabase
         .from("quotes")
         .insert({
@@ -145,31 +185,54 @@ export function QuotesProvider({
         .single();
       if (error) {
         console.error(error);
-        return;
+        return "denied";
       }
       setQuotes((prev) => [data as Quote, ...prev]);
+      return "applied";
     },
     [user, isAdmin],
   );
 
   const updateQuote: Ctx["updateQuote"] = useCallback(
     async (id, patch) => {
-      if (!isAdmin) return;
-      const next: Partial<AddQuoteInput> = { ...patch };
-      if (patch.quote && !patch.language) next.language = detectLanguage(patch.quote);
+      if (!user) return "denied";
+      const language = patch.language ?? detectLanguage(patch.quote);
+      if (!isAdmin) {
+        const { error } = await supabase.from("pending_quotes" as never).insert({
+          submitter_id: user.id,
+          submitter_email: user.email ?? "",
+          type: "edit",
+          original_quote_id: id,
+          quote: patch.quote,
+          author: patch.author,
+          category: patch.category,
+          language,
+        } as never);
+        if (error) {
+          console.error(error);
+          return "denied";
+        }
+        return "pending";
+      }
       const { data, error } = await supabase
         .from("quotes")
-        .update(next)
+        .update({
+          quote: patch.quote,
+          author: patch.author,
+          category: patch.category,
+          language,
+        })
         .eq("id", id)
         .select("id, quote, author, category, language, date_added")
         .single();
       if (error) {
         console.error(error);
-        return;
+        return "denied";
       }
       setQuotes((prev) => prev.map((q) => (q.id === id ? (data as Quote) : q)));
+      return "applied";
     },
-    [isAdmin],
+    [user, isAdmin],
   );
 
   const removeQuote: Ctx["removeQuote"] = useCallback(
@@ -222,6 +285,103 @@ export function QuotesProvider({
     await supabase.auth.signOut();
   }, []);
 
+  const refreshPending = useCallback(async () => {
+    if (!isAdmin) {
+      setPending([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("pending_quotes" as never)
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error(error);
+      return;
+    }
+    setPending(((data ?? []) as unknown) as PendingItem[]);
+  }, [isAdmin]);
+
+  useEffect(() => {
+    refreshPending();
+  }, [refreshPending]);
+
+  const approvePending: Ctx["approvePending"] = useCallback(
+    async (id) => {
+      if (!isAdmin || !user) return;
+      const item = pending.find((p) => p.id === id);
+      if (!item) return;
+      if (item.type === "new") {
+        const { data, error } = await supabase
+          .from("quotes")
+          .insert({
+            quote: item.quote,
+            author: item.author,
+            category: item.category,
+            language: item.language,
+            user_id: item.submitter_id,
+          })
+          .select("id, quote, author, category, language, date_added")
+          .single();
+        if (error) {
+          console.error(error);
+          return;
+        }
+        setQuotes((prev) => [data as Quote, ...prev]);
+      } else if (item.original_quote_id) {
+        const { data, error } = await supabase
+          .from("quotes")
+          .update({
+            quote: item.quote,
+            author: item.author,
+            category: item.category,
+            language: item.language,
+          })
+          .eq("id", item.original_quote_id)
+          .select("id, quote, author, category, language, date_added")
+          .single();
+        if (error) {
+          console.error(error);
+          return;
+        }
+        setQuotes((prev) =>
+          prev.map((q) => (q.id === item.original_quote_id ? (data as Quote) : q)),
+        );
+      }
+      const { error: upErr } = await supabase
+        .from("pending_quotes" as never)
+        .update({
+          status: "approved",
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user.id,
+        } as never)
+        .eq("id", id);
+      if (upErr) console.error(upErr);
+      setPending((prev) => prev.filter((p) => p.id !== id));
+    },
+    [isAdmin, user, pending],
+  );
+
+  const rejectPending: Ctx["rejectPending"] = useCallback(
+    async (id) => {
+      if (!isAdmin || !user) return;
+      const { error } = await supabase
+        .from("pending_quotes" as never)
+        .update({
+          status: "rejected",
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user.id,
+        } as never)
+        .eq("id", id);
+      if (error) {
+        console.error(error);
+        return;
+      }
+      setPending((prev) => prev.filter((p) => p.id !== id));
+    },
+    [isAdmin, user],
+  );
+
   const value = useMemo<Ctx>(
     () => ({
       quotes,
@@ -237,6 +397,10 @@ export function QuotesProvider({
       importFile,
       exportFile,
       signOut,
+      pending,
+      refreshPending,
+      approvePending,
+      rejectPending,
     }),
     [
       quotes,
@@ -252,6 +416,10 @@ export function QuotesProvider({
       importFile,
       exportFile,
       signOut,
+      pending,
+      refreshPending,
+      approvePending,
+      rejectPending,
     ],
   );
 
