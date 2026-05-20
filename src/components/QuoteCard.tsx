@@ -1,18 +1,21 @@
-import { Heart, Trash2 } from "lucide-react";
+import { Heart, Trash2, Pencil } from "lucide-react";
 import type { Quote } from "@/lib/quotes-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EditQuoteDialog } from "./AddQuoteDialog";
 
 export function QuoteCard({
   quote,
   favorite,
   canDelete,
+  canEdit,
   onToggleFavorite,
   onRemove,
 }: {
   quote: Quote;
   favorite: boolean;
   canDelete: boolean;
+  canEdit: boolean;
   onToggleFavorite: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
@@ -49,6 +52,21 @@ export function QuoteCard({
               }
             />
           </Button>
+          {canEdit && (
+            <EditQuoteDialog
+              quote={quote}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Edit"
+                  className="rounded-full text-muted-foreground hover:text-foreground"
+                >
+                  <Pencil />
+                </Button>
+              }
+            />
+          )}
           {canDelete && (
             <Button
               variant="ghost"

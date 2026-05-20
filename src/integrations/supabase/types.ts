@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      pending_quotes: {
+        Row: {
+          author: string
+          category: string
+          created_at: string
+          id: string
+          language: string
+          original_quote_id: string | null
+          quote: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["pending_status"]
+          submitter_email: string
+          submitter_id: string
+          type: Database["public"]["Enums"]["pending_type"]
+        }
+        Insert: {
+          author?: string
+          category?: string
+          created_at?: string
+          id?: string
+          language?: string
+          original_quote_id?: string | null
+          quote: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["pending_status"]
+          submitter_email?: string
+          submitter_id: string
+          type: Database["public"]["Enums"]["pending_type"]
+        }
+        Update: {
+          author?: string
+          category?: string
+          created_at?: string
+          id?: string
+          language?: string
+          original_quote_id?: string | null
+          quote?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["pending_status"]
+          submitter_email?: string
+          submitter_id?: string
+          type?: Database["public"]["Enums"]["pending_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_quotes_original_quote_id_fkey"
+            columns: ["original_quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotes: {
         Row: {
           author: string
@@ -109,6 +165,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      pending_status: "pending" | "approved" | "rejected"
+      pending_type: "new" | "edit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -237,6 +295,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      pending_status: ["pending", "approved", "rejected"],
+      pending_type: ["new", "edit"],
     },
   },
 } as const

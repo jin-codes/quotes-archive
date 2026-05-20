@@ -48,6 +48,7 @@ export function QuoteLibrary({
     exportFile,
     importFile,
     isAdmin,
+    user,
   } = useQuotes();
   const fileRef = useRef<HTMLInputElement>(null);
   const [, force] = useState(0);
@@ -165,6 +166,7 @@ export function QuoteLibrary({
               quote={q}
               favorite={isFavorite(q.id)}
               canDelete={isAdmin}
+              canEdit={!!user}
               onToggleFavorite={toggleFavorite}
               onRemove={removeQuote}
             />

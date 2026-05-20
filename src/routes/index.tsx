@@ -1,13 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { LogIn, LogOut, ShieldCheck, Library, Inbox } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { QuotesProvider, useQuotes } from "@/lib/quotes-context";
 import { RandomQuoteHero } from "@/components/RandomQuoteHero";
 import { QuoteLibrary, type QuoteFilters } from "@/components/QuoteLibrary";
 import { AddQuoteDialog } from "@/components/AddQuoteDialog";
+import { PendingQueue } from "@/components/PendingQueue";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -77,7 +80,7 @@ function Index() {
 }
 
 function Shell() {
-  const { user, isAdmin, signOut } = useQuotes();
+  const { user, isAdmin, signOut, pending } = useQuotes();
   const [filters, setFilters] = useState<QuoteFilters>({
     search: "",
     favOnly: false,
@@ -100,7 +103,7 @@ function Shell() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {isAdmin && <AddQuoteDialog />}
+            {user && <AddQuoteDialog />}
             {user ? (
               <Button
                 variant="outline"
@@ -124,15 +127,41 @@ function Shell() {
         <RandomQuoteHero filters={filters} />
 
         <div className="mt-12">
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-xl font-semibold text-foreground">Library</h2>
-            {isAdmin && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/60 px-3 py-1 text-xs font-medium text-accent-foreground">
-                <ShieldCheck className="size-3.5" /> Admin tools enabled
-              </span>
-            )}
-          </div>
-          <QuoteLibrary filters={filters} setFilters={setFilters} />
+          {isAdmin ? (
+            <Tabs defaultValue="library" className="w-full">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <TabsList className="rounded-full bg-card p-1">
+                  <TabsTrigger value="library" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Library className="size-4" /> Library
+                  </TabsTrigger>
+                  <TabsTrigger value="pending" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Inbox className="size-4" /> Pending
+                    {pending.length > 0 && (
+                      <Badge variant="secondary" className="ml-1.5 rounded-full bg-accent/70 text-accent-foreground">
+                        {pending.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/60 px-3 py-1 text-xs font-medium text-accent-foreground">
+                  <ShieldCheck className="size-3.5" /> Admin tools enabled
+                </span>
+              </div>
+              <TabsContent value="library">
+                <QuoteLibrary filters={filters} setFilters={setFilters} />
+              </TabsContent>
+              <TabsContent value="pending">
+                <PendingQueue />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <>
+              <div className="mb-4 flex items-baseline justify-between">
+                <h2 className="text-xl font-semibold text-foreground">Library</h2>
+              </div>
+              <QuoteLibrary filters={filters} setFilters={setFilters} />
+            </>
+          )}
         </div>
       </div>
     </main>
