@@ -167,30 +167,6 @@ export async function downloadQuoteImage(quote: Quote): Promise<void> {
   };
   drawSpaced(authorText, authorY, 4);
 
-  // Pills row: category + language
-  const pillY = authorY + 36;
-  const pillH = 52;
-  const pillPadX = 28;
-  ctx.font = `600 22px ${FONT_STACK}`;
-  ctx.textBaseline = "middle";
-
-  const pills: { text: string; bg: string; color: string }[] = [];
-  if (quote.category) pills.push({ text: quote.category, bg: "rgba(255,255,255,0.78)", color: "#5a4a78" });
-  pills.push({ text: quote.language, bg: "rgba(255,255,255,0.6)", color: "#5a4a78" });
-
-  const measured = pills.map((p) => ctx.measureText(p.text).width + pillPadX * 2);
-  const gap = 16;
-  const totalPillsW = measured.reduce((a, b) => a + b, 0) + gap * (pills.length - 1);
-  let px = (SIZE - totalPillsW) / 2;
-
-  pills.forEach((p, i) => {
-    const w = measured[i];
-    drawRoundedPill(ctx, px, pillY, w, pillH, p.bg);
-    ctx.fillStyle = p.color;
-    ctx.textAlign = "center";
-    ctx.fillText(p.text, px + w / 2, pillY + pillH / 2 + 1);
-    px += w + gap;
-  });
 
   // Export
   const slug =
