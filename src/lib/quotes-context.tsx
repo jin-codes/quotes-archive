@@ -59,6 +59,8 @@ type Ctx = {
   refreshPending: () => Promise<void>;
   approvePending: (id: string) => Promise<void>;
   rejectPending: (id: string) => Promise<void>;
+  pinnedId: string | null;
+  pinQuote: (id: string | null) => void;
 };
 
 const QuotesContext = createContext<Ctx | null>(null);
@@ -76,6 +78,11 @@ export function QuotesProvider({
   const [loading, setLoading] = useState(true);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<PendingItem[]>([]);
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+
+  const pinQuote = useCallback((id: string | null) => {
+    setPinnedId((cur) => (cur === id ? null : id));
+  }, []);
 
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
@@ -401,6 +408,8 @@ export function QuotesProvider({
       refreshPending,
       approvePending,
       rejectPending,
+      pinnedId,
+      pinQuote,
     }),
     [
       quotes,
@@ -420,6 +429,8 @@ export function QuotesProvider({
       refreshPending,
       approvePending,
       rejectPending,
+      pinnedId,
+      pinQuote,
     ],
   );
 
