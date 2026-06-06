@@ -133,8 +133,8 @@ export async function downloadQuoteImage(quote: Quote): Promise<void> {
 
   const lineHeight = Math.round(fontSize * 1.4);
   const quoteBlockH = lineHeight * lines.length;
-  // Reserve room for author + tags below
-  const metaBlockH = 60 + 24 + 64; // author + gap + pill row
+  // Reserve room for author below
+  const metaBlockH = 60 + 48; // author + bottom margin
   const totalH = quoteBlockH + 64 + metaBlockH;
   const startY = Math.max(PADDING + lineHeight, (SIZE - totalH) / 2 + lineHeight);
 
