@@ -20,6 +20,7 @@ type AddQuoteInput = {
   quote: string;
   author: string;
   category: string;
+  tags: string[];
   language?: "ENG" | "KOR";
 };
 
@@ -32,6 +33,7 @@ export type PendingItem = {
   quote: string;
   author: string;
   category: string;
+  tags: string[];
   language: "ENG" | "KOR";
   status: "pending" | "approved" | "rejected";
   created_at: string;
@@ -87,7 +89,7 @@ export function QuotesProvider({
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
       .from("quotes")
-      .select("id, quote, author, category, language, date_added")
+      .select("id, quote, author, category, language, date_added, translation_group, tags")
       .order("date_added", { ascending: false });
     if (error) {
       console.error(error);
@@ -171,6 +173,7 @@ export function QuotesProvider({
           quote: q.quote,
           author: q.author,
           category: q.category,
+          tags: q.tags,
           language,
         } as never);
         if (error) {
@@ -185,10 +188,11 @@ export function QuotesProvider({
           quote: q.quote,
           author: q.author,
           category: q.category,
+          tags: q.tags,
           language,
           user_id: user.id,
         })
-        .select("id, quote, author, category, language, date_added")
+        .select("id, quote, author, category, language, date_added, translation_group, tags")
         .single();
       if (error) {
         console.error(error);
@@ -213,6 +217,7 @@ export function QuotesProvider({
           quote: patch.quote,
           author: patch.author,
           category: patch.category,
+          tags: patch.tags,
           language,
         } as never);
         if (error) {
@@ -227,10 +232,11 @@ export function QuotesProvider({
           quote: patch.quote,
           author: patch.author,
           category: patch.category,
+          tags: patch.tags,
           language,
         })
         .eq("id", id)
-        .select("id, quote, author, category, language, date_added")
+        .select("id, quote, author, category, language, date_added, translation_group, tags")
         .single();
       if (error) {
         console.error(error);
@@ -266,6 +272,7 @@ export function QuotesProvider({
         quote: q.quote,
         author: q.author,
         category: q.category,
+        tags: q.tags,
         language: q.language,
         date_added: q.date_added,
         user_id: user.id,
@@ -273,7 +280,7 @@ export function QuotesProvider({
       const { data, error } = await supabase
         .from("quotes")
         .insert(rows)
-        .select("id, quote, author, category, language, date_added");
+        .select("id, quote, author, category, language, date_added, translation_group, tags");
       if (error) {
         console.error(error);
         return;
@@ -325,10 +332,11 @@ export function QuotesProvider({
             quote: item.quote,
             author: item.author,
             category: item.category,
+            tags: item.tags ?? [],
             language: item.language,
             user_id: item.submitter_id,
           })
-          .select("id, quote, author, category, language, date_added")
+          .select("id, quote, author, category, language, date_added, translation_group, tags")
           .single();
         if (error) {
           console.error(error);
@@ -342,10 +350,11 @@ export function QuotesProvider({
             quote: item.quote,
             author: item.author,
             category: item.category,
+            tags: item.tags ?? [],
             language: item.language,
           })
           .eq("id", item.original_quote_id)
-          .select("id, quote, author, category, language, date_added")
+          .select("id, quote, author, category, language, date_added, translation_group, tags")
           .single();
         if (error) {
           console.error(error);

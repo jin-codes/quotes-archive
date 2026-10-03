@@ -9,8 +9,8 @@ import { QuoteCard } from "./QuoteCard";
 export type QuoteFilters = {
   search: string;
   favOnly: boolean;
-  category: string | null;
-  language: "ENG" | "KOR" | null;
+  tags: string[];
+  language: "ENG" | "KOR";
 };
 
 export function filterQuotes(
@@ -21,13 +21,13 @@ export function filterQuotes(
   const term = f.search.trim().toLowerCase();
   return quotes.filter((q) => {
     if (f.favOnly && !favoriteIds.has(q.id)) return false;
-    if (f.category && q.category !== f.category) return false;
-    if (f.language && q.language !== f.language) return false;
+    if (f.tags.length && !f.tags.some((t) => q.tags.includes(t))) return false;
+    if (q.language !== f.language) return false;
     if (!term) return true;
     return (
       q.quote.toLowerCase().includes(term) ||
       q.author.toLowerCase().includes(term) ||
-      q.category.toLowerCase().includes(term)
+      q.tags.some((t) => t.toLowerCase().includes(term))
     );
   });
 }
@@ -53,11 +53,14 @@ export function QuoteLibrary({
   const fileRef = useRef<HTMLInputElement>(null);
   const [, force] = useState(0);
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    quotes.forEach((q) => q.category && set.add(q.category));
-    return Array.from(set).sort();
-  }, [quotes]);
+  // Tags available in the selected language, most used first.
+  const tagList = useMemo(() => {
+    const counts = new Map<string, number>();
+    quotes
+      .filter((q) => q.language === filters.language)
+      .forEach((q) => q.tags.forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1)));
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko"));
+  }, [quotes, filters.language]);
 
   const filtered = useMemo(
     () => filterQuotes(quotes, favoriteIds, filters),
@@ -79,7 +82,7 @@ export function QuoteLibrary({
           <Input
             value={filters.search}
             onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
-            placeholder="Search by keyword, author, or category…"
+            placeholder="Search by keyword, author, or tag…"
             className="rounded-full bg-card pl-9"
           />
         </div>
@@ -93,7 +96,7 @@ export function QuoteLibrary({
         <Button
           variant={filters.language === "ENG" ? "default" : "outline"}
           onClick={() =>
-            setFilters((p) => ({ ...p, language: p.language === "ENG" ? null : "ENG" }))
+            setFilters((p) => ({ ...p, language: "ENG" }))
           }
           className="rounded-full"
         >
@@ -102,7 +105,7 @@ export function QuoteLibrary({
         <Button
           variant={filters.language === "KOR" ? "default" : "outline"}
           onClick={() =>
-            setFilters((p) => ({ ...p, language: p.language === "KOR" ? null : "KOR" }))
+            setFilters((p) => ({ ...p, language: "KOR" }))
           }
           className="rounded-full"
         >
@@ -132,23 +135,26 @@ export function QuoteLibrary({
         </Button>
       </div>
 
-      {categories.length > 0 && (
+      {tagList.length > 0 && (
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setFilters((p) => ({ ...p, category: null }))}
-            className={pill(filters.category === null)}
+            onClick={() => setFilters((p) => ({ ...p, tags: [] }))}
+            className={pill(filters.tags.length === 0)}
           >
-            All
+            전체
           </button>
-          {categories.map((c) => (
+          {tagList.map(([t, n]) => (
             <button
-              key={c}
+              key={t}
               onClick={() =>
-                setFilters((p) => ({ ...p, category: c === p.category ? null : c }))
+                setFilters((p) => ({
+                  ...p,
+                  tags: p.tags.includes(t) ? p.tags.filter((x) => x !== t) : [...p.tags, t],
+                }))
               }
-              className={pill(filters.category === c)}
+              className={pill(filters.tags.includes(t))}
             >
-              {c}
+              #{t} <span className="opacity-60">{n}</span>
             </button>
           ))}
         </div>
@@ -175,7 +181,7 @@ export function QuoteLibrary({
       )}
 
       <p className="text-center text-xs text-muted-foreground">
-        {quotes.length} quote{quotes.length === 1 ? "" : "s"} in the archive
+        {filtered.length} quote{filtered.length === 1 ? "" : "s"} shown · {filters.language}
       </p>
     </section>
   );

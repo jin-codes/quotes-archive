@@ -84,8 +84,8 @@ function Shell() {
   const [filters, setFilters] = useState<QuoteFilters>({
     search: "",
     favOnly: false,
-    category: null,
-    language: null,
+    tags: [],
+    language: "KOR",
   });
 
   return (

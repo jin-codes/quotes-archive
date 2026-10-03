@@ -91,7 +91,7 @@ function PendingCard({
           <div className="space-y-2 rounded-xl bg-background/60 p-3">
             <DiffLine label="Quote" before={original.quote} after={item.quote} />
             <DiffLine label="Author" before={original.author} after={item.author} />
-            <DiffLine label="Category" before={original.category} after={item.category} />
+            <DiffLine label="Tags" before={original.tags.join(", ")} after={(item.tags ?? []).join(", ")} />
             <DiffLine label="Language" before={original.language} after={item.language} />
           </div>
         ) : item.type === "edit" && !original ? (
@@ -103,11 +103,11 @@ function PendingCard({
             <p className="text-base leading-relaxed text-card-foreground">"{item.quote}"</p>
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="font-medium text-foreground">{item.author || "Unknown"}</span>
-              {item.category && (
-                <Badge variant="secondary" className="rounded-full bg-accent/60 text-accent-foreground">
-                  {item.category}
+              {(item.tags ?? []).map((t) => (
+                <Badge key={t} variant="secondary" className="rounded-full bg-accent/60 text-accent-foreground">
+                  #{t}
                 </Badge>
-              )}
+              ))}
               <Badge variant="secondary" className="rounded-full bg-secondary/60 text-secondary-foreground">
                 {item.language}
               </Badge>

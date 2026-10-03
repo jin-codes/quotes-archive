@@ -1,12 +1,10 @@
 import { Heart, Trash2, Pencil, Pin, Download } from "lucide-react";
-import { useState } from "react";
 import type { Quote } from "@/lib/quotes-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EditQuoteDialog } from "./AddQuoteDialog";
 import { useQuotes } from "@/lib/quotes-context";
-import { downloadQuoteImage } from "@/lib/quote-image";
-import { toast } from "sonner";
+import { QuoteImageDialog } from "./QuoteImageDialog";
 
 export function QuoteCard({
   quote,
@@ -25,20 +23,6 @@ export function QuoteCard({
 }) {
   const { pinnedId, pinQuote } = useQuotes();
   const pinned = pinnedId === quote.id;
-  const [downloading, setDownloading] = useState(false);
-
-  const handleDownload = async () => {
-    if (downloading) return;
-    setDownloading(true);
-    try {
-      await downloadQuoteImage(quote);
-    } catch (err) {
-      console.error(err);
-      toast.error("Could not generate image");
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   return (
     <article
@@ -51,11 +35,11 @@ export function QuoteCard({
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">{quote.author || "Unknown"}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {quote.category && (
-              <Badge variant="secondary" className="rounded-full bg-accent/60 text-accent-foreground">
-                {quote.category}
+            {quote.tags.map((t) => (
+              <Badge key={t} variant="secondary" className="rounded-full bg-accent/60 text-accent-foreground">
+                #{t}
               </Badge>
-            )}
+            ))}
             <Badge variant="secondary" className="rounded-full bg-secondary/60 text-secondary-foreground">
               {quote.language}
             </Badge>
@@ -78,17 +62,20 @@ export function QuoteCard({
               }
             />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleDownload}
-            disabled={downloading}
-            aria-label="Download as image"
-            title="Download as image"
-            className="rounded-full text-muted-foreground hover:text-foreground"
-          >
-            <Download />
-          </Button>
+          <QuoteImageDialog
+            quote={quote}
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Save as image"
+                title="Save as image"
+                className="rounded-full text-muted-foreground hover:text-foreground"
+              >
+                <Download />
+              </Button>
+            }
+          />
           <Button
             variant="ghost"
             size="icon"

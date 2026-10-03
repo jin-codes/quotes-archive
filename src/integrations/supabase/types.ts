@@ -23,6 +23,7 @@ export type Database = {
           language: string
           original_quote_id: string | null
           quote: string
+          tags: string[]
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["pending_status"]
@@ -37,6 +38,7 @@ export type Database = {
           id?: string
           language?: string
           original_quote_id?: string | null
+          tags?: string[]
           quote: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -52,6 +54,7 @@ export type Database = {
           id?: string
           language?: string
           original_quote_id?: string | null
+          tags?: string[]
           quote?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -78,6 +81,8 @@ export type Database = {
           id: string
           language: string
           quote: string
+          tags: string[]
+          translation_group: string | null
           user_id: string | null
         }
         Insert: {
@@ -86,7 +91,9 @@ export type Database = {
           date_added?: string
           id?: string
           language?: string
+          tags?: string[]
           quote: string
+          translation_group?: string | null
           user_id?: string | null
         }
         Update: {
@@ -95,7 +102,9 @@ export type Database = {
           date_added?: string
           id?: string
           language?: string
+          tags?: string[]
           quote?: string
+          translation_group?: string | null
           user_id?: string | null
         }
         Relationships: []

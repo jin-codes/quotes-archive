@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,10 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useQuotes } from "@/lib/quotes-context";
-import { detectLanguage, type Quote } from "@/lib/quotes-store";
+import { detectLanguage, parseTags, type Quote } from "@/lib/quotes-store";
 import { toast } from "sonner";
 
-const SUGGESTED = ["Philosophy", "Literature", "Economics", "Science", "Art", "Life"];
 
 function QuoteFormDialog({
   trigger,
@@ -35,6 +34,7 @@ function QuoteFormDialog({
     quote: string;
     author: string;
     category: string;
+    tags: string[];
     language: "ENG" | "KOR";
   }) => Promise<"applied" | "pending" | "denied">;
   title: string;
@@ -44,7 +44,7 @@ function QuoteFormDialog({
   const [open, setOpen] = useState(false);
   const [quote, setQuote] = useState(initial?.quote ?? "");
   const [author, setAuthor] = useState(initial?.author ?? "");
-  const [category, setCategory] = useState(initial?.category ?? "");
+  const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(", "));
   const [language, setLanguage] = useState<"ENG" | "KOR">(initial?.language ?? "ENG");
   const [langTouched, setLangTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -53,17 +53,32 @@ function QuoteFormDialog({
     if (open && initial) {
       setQuote(initial.quote);
       setAuthor(initial.author);
-      setCategory(initial.category);
+      setTagsText(initial.tags.join(", "));
       setLanguage(initial.language);
       setLangTouched(false);
     } else if (open && !initial) {
       setQuote("");
       setAuthor("");
-      setCategory("");
+      setTagsText("");
       setLanguage("ENG");
       setLangTouched(false);
     }
   }, [open, initial]);
+
+  const { quotes } = useQuotes();
+  const currentTags = parseTags(tagsText);
+  const suggestions = useMemo(() => {
+    const counts = new Map<string, number>();
+    quotes.forEach((q) => q.tags.forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1)));
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko"))
+      .map(([t]) => t);
+  }, [quotes]);
+  const toggleTag = (t: string) =>
+    setTagsText((cur) => {
+      const list = parseTags(cur);
+      return (list.includes(t) ? list.filter((x) => x !== t) : [...list, t]).join(", ");
+    });
 
   const detected = quote.trim() ? detectLanguage(quote) : null;
   const effectiveLang: "ENG" | "KOR" = langTouched ? language : detected ?? language;
@@ -75,7 +90,8 @@ function QuoteFormDialog({
     const result = await onSubmit({
       quote: quote.trim(),
       author: author.trim(),
-      category: category.trim(),
+      category: initial?.category ?? "",
+      tags: parseTags(tagsText),
       language: effectiveLang,
     });
     setBusy(false);
@@ -117,25 +133,33 @@ function QuoteFormDialog({
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="a">Author / Source</Label>
-              <Input id="a" value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="e.g. Marcus Aurelius" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="c">Category</Label>
-              <Input
-                id="c"
-                list="cat-suggest"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="Philosophy"
-              />
-              <datalist id="cat-suggest">
-                {SUGGESTED.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
+          <div className="space-y-2">
+            <Label htmlFor="a">Author / Source</Label>
+            <Input id="a" value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="e.g. Marcus Aurelius" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="t">Tags</Label>
+            <Input
+              id="t"
+              value={tagsText}
+              onChange={(e) => setTagsText(e.target.value)}
+              placeholder="용기, 끈기, 성장 (쉼표로 구분)"
+            />
+            <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+              {suggestions.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => toggleTag(t)}
+                  className={`rounded-full px-2.5 py-0.5 text-xs transition ${
+                    currentTags.includes(t)
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card text-muted-foreground hover:bg-accent/60"
+                  }`}
+                >
+                  #{t}
+                </button>
+              ))}
             </div>
           </div>
           <div className="flex items-center gap-2">

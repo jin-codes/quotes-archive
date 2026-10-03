@@ -7,9 +7,16 @@ export type Quote = {
   category: string;
   language: "ENG" | "KOR";
   date_added: string;
+  translation_group?: string | null;
+  tags: string[];
 };
 
-const COLUMNS = ["id", "quote", "author", "category", "language", "date_added"] as const;
+const COLUMNS = ["id", "quote", "author", "category", "tags", "language", "date_added"] as const;
+
+export function parseTags(input: unknown): string[] {
+  const raw = Array.isArray(input) ? input.map(String) : String(input ?? "").split(/[,，、]/);
+  return Array.from(new Set(raw.map((t) => t.trim().replace(/^#/, "")).filter(Boolean)));
+}
 
 export function detectLanguage(text: string): "ENG" | "KOR" {
   return /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(text) ? "KOR" : "ENG";
@@ -30,6 +37,7 @@ export function parseFromArrayBuffer(buf: ArrayBuffer): Omit<Quote, "id">[] {
         quote,
         author: String(r.author ?? "").trim(),
         category: String(r.category ?? "").trim(),
+        tags: parseTags(r.tags),
         language,
         date_added: String(r.date_added ?? new Date().toISOString()),
       };
@@ -47,12 +55,13 @@ export function downloadXlsx(
     quote: q.quote,
     author: q.author,
     category: q.category,
+    tags: q.tags.join(", "),
     favorite: favoriteIds.has(q.id) ? "TRUE" : "FALSE",
     language: q.language,
     date_added: q.date_added,
   }));
   const ws = XLSX.utils.json_to_sheet(rows, {
-    header: ["id", "quote", "author", "category", "favorite", "language", "date_added"],
+    header: ["id", "quote", "author", "category", "tags", "favorite", "language", "date_added"],
   });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Quotes");

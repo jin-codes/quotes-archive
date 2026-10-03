@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { Shuffle, Heart, Pin } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Shuffle, Heart, Pin, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuotes } from "@/lib/quotes-context";
+import type { Quote } from "@/lib/quotes-store";
+import { QuoteImageDialog } from "./QuoteImageDialog";
 import { filterQuotes, type QuoteFilters } from "./QuoteLibrary";
 
 export function RandomQuoteHero({ filters }: { filters: QuoteFilters }) {
@@ -14,10 +16,20 @@ export function RandomQuoteHero({ filters }: { filters: QuoteFilters }) {
     [quotes, favoriteIds, filters],
   );
 
-  const pinnedQuote = useMemo(
-    () => (pinnedId ? quotes.find((q) => q.id === pinnedId) ?? null : null),
-    [pinnedId, quotes],
-  );
+  // A pinned quote only shows in the selected language: use its translation, if any.
+  const pinnedQuote = useMemo(() => {
+    const pinned = pinnedId ? quotes.find((q) => q.id === pinnedId) ?? null : null;
+    if (!pinned || pinned.language === filters.language) return pinned;
+    if (!pinned.translation_group) return null;
+    return (
+      quotes.find(
+        (q) => q.translation_group === pinned.translation_group && q.language === filters.language,
+      ) ?? null
+    );
+  }, [pinnedId, quotes, filters.language]);
+
+  // Last quote shown, so switching language can jump to its translation.
+  const lastShown = useRef<Quote | null>(null);
 
   useEffect(() => {
     if (pinnedQuote) return;
@@ -25,7 +37,18 @@ export function RandomQuoteHero({ filters }: { filters: QuoteFilters }) {
       setIdx(null);
       return;
     }
-    setIdx((cur) => (cur !== null && cur < pool.length ? cur : Math.floor(Math.random() * pool.length)));
+    const group = lastShown.current?.translation_group;
+    const twin = group ? pool.findIndex((q) => q.translation_group === group) : -1;
+    if (twin >= 0) {
+      setIdx(twin);
+      return;
+    }
+    setIdx((cur) => {
+      const shown = cur !== null ? pool[cur] : undefined;
+      return shown && shown.id === lastShown.current?.id
+        ? cur
+        : Math.floor(Math.random() * pool.length);
+    });
   }, [pool, pinnedQuote]);
 
   // fade animation whenever the displayed quote source changes (pin change, etc.)
@@ -53,7 +76,10 @@ export function RandomQuoteHero({ filters }: { filters: QuoteFilters }) {
     }, 180);
   };
 
-  const current = pinnedQuote ?? (idx !== null ? pool[idx] : null);
+  const current = pinnedQuote ?? (idx !== null ? pool[idx] ?? null : null);
+  useEffect(() => {
+    if (current) lastShown.current = current;
+  }, [current]);
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[oklch(0.93_0.05_300)] via-[oklch(0.95_0.04_30)] to-[oklch(0.93_0.06_165)] px-6 py-16 shadow-[0_10px_40px_-15px_oklch(0.72_0.11_300_/_0.4)] sm:px-12 sm:py-24">
@@ -91,11 +117,11 @@ export function RandomQuoteHero({ filters }: { filters: QuoteFilters }) {
                 — {current.author || "Unknown"}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
-                {current.category && (
-                  <span className="rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-primary shadow-sm backdrop-blur">
-                    {current.category}
+                {current.tags.map((t) => (
+                  <span key={t} className="rounded-full bg-white/60 px-3 py-1 text-xs font-medium text-primary shadow-sm backdrop-blur">
+                    #{t}
                   </span>
-                )}
+                ))}
                 <span className="rounded-full bg-white/50 px-3 py-1 text-xs font-medium text-primary shadow-sm backdrop-blur">
                   {current.language}
                 </span>
@@ -122,6 +148,16 @@ export function RandomQuoteHero({ filters }: { filters: QuoteFilters }) {
               <Heart className={isFavorite(current.id) ? "fill-[oklch(0.78_0.13_20)] text-[oklch(0.78_0.13_20)]" : ""} />
               {isFavorite(current.id) ? "Favorited" : "Favorite"}
             </Button>
+          )}
+          {current && (
+            <QuoteImageDialog
+              quote={current}
+              trigger={
+                <Button variant="outline" size="lg" className="rounded-full bg-card/70 backdrop-blur">
+                  <Download /> Save image
+                </Button>
+              }
+            />
           )}
         </div>
       </div>
