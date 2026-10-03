@@ -76,7 +76,9 @@ export function RandomQuoteHero({ filters }: { filters: QuoteFilters }) {
     }, 180);
   };
 
-  const current = pinnedQuote ?? (idx !== null ? pool[idx] ?? null : null);
+  // While the index catches up with a changed pool, show the first match instead of a blank state.
+  const current =
+    pinnedQuote ?? (pool.length ? pool[idx !== null && idx < pool.length ? idx : 0] : null);
   useEffect(() => {
     if (current) lastShown.current = current;
   }, [current]);

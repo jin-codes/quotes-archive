@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useQuotes } from "@/lib/quotes-context";
 import type { Quote } from "@/lib/quotes-store";
 import { QuoteCard } from "./QuoteCard";
+import { TAG_GROUPS, OTHER_GROUP, groupOfTag, tagsOfGroup } from "@/lib/tag-groups";
 
 export type QuoteFilters = {
   search: string;
   favOnly: boolean;
+  group: string | null;
   tags: string[];
   language: "ENG" | "KOR";
 };
@@ -21,6 +23,7 @@ export function filterQuotes(
   const term = f.search.trim().toLowerCase();
   return quotes.filter((q) => {
     if (f.favOnly && !favoriteIds.has(q.id)) return false;
+    if (f.group && !q.tags.some((t) => groupOfTag(t) === f.group)) return false;
     if (f.tags.length && !f.tags.some((t) => q.tags.includes(t))) return false;
     if (q.language !== f.language) return false;
     if (!term) return true;
@@ -53,14 +56,32 @@ export function QuoteLibrary({
   const fileRef = useRef<HTMLInputElement>(null);
   const [, force] = useState(0);
 
-  // Tags available in the selected language, most used first.
+  // Quotes of the selected language, for tag and group counts.
+  const langQuotes = useMemo(
+    () => quotes.filter((q) => q.language === filters.language),
+    [quotes, filters.language],
+  );
+
+  const groups = useMemo(() => {
+    const names = [...TAG_GROUPS.map((g) => g.name), OTHER_GROUP];
+    return names
+      .map((name) => ({
+        name,
+        count: langQuotes.filter((q) => q.tags.some((t) => groupOfTag(t) === name)).length,
+      }))
+      .filter((g) => g.count > 0);
+  }, [langQuotes]);
+
+  // Detailed tags of the open group, most used first.
   const tagList = useMemo(() => {
+    if (!filters.group) return [];
+    const inGroup = new Set(tagsOfGroup(filters.group, langQuotes.flatMap((q) => q.tags)));
     const counts = new Map<string, number>();
-    quotes
-      .filter((q) => q.language === filters.language)
-      .forEach((q) => q.tags.forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1)));
+    langQuotes
+      .filter((q) => q.tags.some((t) => groupOfTag(t) === filters.group))
+      .forEach((q) => q.tags.forEach((t) => inGroup.has(t) && counts.set(t, (counts.get(t) ?? 0) + 1)));
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko"));
-  }, [quotes, filters.language]);
+  }, [langQuotes, filters.group]);
 
   const filtered = useMemo(
     () => filterQuotes(quotes, favoriteIds, filters),
@@ -96,7 +117,7 @@ export function QuoteLibrary({
         <Button
           variant={filters.language === "ENG" ? "default" : "outline"}
           onClick={() =>
-            setFilters((p) => ({ ...p, language: "ENG" }))
+            setFilters((p) => ({ ...p, language: "ENG", tags: [] }))
           }
           className="rounded-full"
         >
@@ -105,7 +126,7 @@ export function QuoteLibrary({
         <Button
           variant={filters.language === "KOR" ? "default" : "outline"}
           onClick={() =>
-            setFilters((p) => ({ ...p, language: "KOR" }))
+            setFilters((p) => ({ ...p, language: "KOR", tags: [] }))
           }
           className="rounded-full"
         >
@@ -135,28 +156,52 @@ export function QuoteLibrary({
         </Button>
       </div>
 
-      {tagList.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setFilters((p) => ({ ...p, tags: [] }))}
-            className={pill(filters.tags.length === 0)}
-          >
-            전체
-          </button>
-          {tagList.map(([t, n]) => (
+      {groups.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
             <button
-              key={t}
-              onClick={() =>
-                setFilters((p) => ({
-                  ...p,
-                  tags: p.tags.includes(t) ? p.tags.filter((x) => x !== t) : [...p.tags, t],
-                }))
-              }
-              className={pill(filters.tags.includes(t))}
+              onClick={() => setFilters((p) => ({ ...p, group: null, tags: [] }))}
+              className={pill(filters.group === null)}
             >
-              #{t} <span className="opacity-60">{n}</span>
+              전체
             </button>
-          ))}
+            {groups.map((g) => (
+              <button
+                key={g.name}
+                onClick={() =>
+                  setFilters((p) => ({ ...p, group: p.group === g.name ? null : g.name, tags: [] }))
+                }
+                className={pill(filters.group === g.name)}
+              >
+                {g.name} <span className="opacity-60">{g.count}</span>
+              </button>
+            ))}
+          </div>
+          {tagList.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 rounded-2xl bg-card/60 p-3">
+              {tagList.map(([t, n]) => {
+                const active = filters.tags.includes(t);
+                return (
+                  <button
+                    key={t}
+                    onClick={() =>
+                      setFilters((p) => ({
+                        ...p,
+                        tags: active ? p.tags.filter((x) => x !== t) : [...p.tags, t],
+                      }))
+                    }
+                    className={`rounded-full px-2.5 py-0.5 text-xs transition ${
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-accent/60"
+                    }`}
+                  >
+                    #{t} <span className="opacity-60">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

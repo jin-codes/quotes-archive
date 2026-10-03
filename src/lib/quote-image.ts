@@ -94,14 +94,7 @@ export type QuoteBackground =
   | { kind: "image"; id: string; label: string; src: string };
 
 export const BACKGROUNDS: GradientBackground[] = [
-  {
-    kind: "gradient",
-    id: "rainbow",
-    label: "무지개",
-    stops: ["#ff9aa2", "#ffb86b", "#ffe66d", "#8be28b", "#6ed3ff", "#8f9bff", "#d68bff"],
-    dark: false,
-  },
-  { kind: "gradient", id: "pastel", label: "파스텔", stops: ["#efe4ff", "#ffe8db", "#daf3e6"], dark: false, blobs: true },
+  { kind: "gradient", id: "pastel", label: "기본", stops: ["#efe4ff", "#ffe8db", "#daf3e6"], dark: false, blobs: true },
   { kind: "gradient", id: "sunset", label: "노을", stops: ["#ff7e5f", "#ff6a88", "#feb47b"], dark: true },
   { kind: "gradient", id: "ocean", label: "바다", stops: ["#2193b0", "#6dd5ed"], dark: true },
   { kind: "gradient", id: "forest", label: "숲", stops: ["#134e5e", "#71b280"], dark: true },

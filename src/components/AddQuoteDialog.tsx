@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useQuotes } from "@/lib/quotes-context";
 import { detectLanguage, parseTags, type Quote } from "@/lib/quotes-store";
+import { TAG_GROUPS, OTHER_GROUP, groupOfTag } from "@/lib/tag-groups";
 import { toast } from "sonner";
 
 
@@ -67,12 +68,13 @@ function QuoteFormDialog({
 
   const { quotes } = useQuotes();
   const currentTags = parseTags(tagsText);
-  const suggestions = useMemo(() => {
-    const counts = new Map<string, number>();
-    quotes.forEach((q) => q.tags.forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1)));
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko"))
-      .map(([t]) => t);
+  const suggestionGroups = useMemo(() => {
+    const all = new Set<string>(TAG_GROUPS.flatMap((g) => g.tags));
+    quotes.forEach((q) => q.tags.forEach((t) => all.add(t)));
+    const names = [...TAG_GROUPS.map((g) => g.name), OTHER_GROUP];
+    return names
+      .map((name) => ({ name, tags: Array.from(all).filter((t) => groupOfTag(t) === name) }))
+      .filter((g) => g.tags.length > 0);
   }, [quotes]);
   const toggleTag = (t: string) =>
     setTagsText((cur) => {
@@ -145,20 +147,25 @@ function QuoteFormDialog({
               onChange={(e) => setTagsText(e.target.value)}
               placeholder="용기, 끈기, 성장 (쉼표로 구분)"
             />
-            <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
-              {suggestions.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => toggleTag(t)}
-                  className={`rounded-full px-2.5 py-0.5 text-xs transition ${
-                    currentTags.includes(t)
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card text-muted-foreground hover:bg-accent/60"
-                  }`}
-                >
-                  #{t}
-                </button>
+            <div className="max-h-36 space-y-1.5 overflow-y-auto">
+              {suggestionGroups.map((g) => (
+                <div key={g.name} className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-16 shrink-0 text-[11px] text-muted-foreground">{g.name}</span>
+                  {g.tags.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggleTag(t)}
+                      className={`rounded-full px-2.5 py-0.5 text-xs transition ${
+                        currentTags.includes(t)
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card text-muted-foreground hover:bg-accent/60"
+                      }`}
+                    >
+                      #{t}
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           </div>

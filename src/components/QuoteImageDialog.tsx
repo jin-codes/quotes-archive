@@ -29,12 +29,10 @@ export function QuoteImageDialog({ quote, trigger }: { quote: Quote; trigger: Re
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const [picked, setPicked] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
-      setPicked(false);
       setShowAll(false);
     }
   }, [open, quote.id]);
@@ -45,11 +43,6 @@ export function QuoteImageDialog({ quote, trigger }: { quote: Quote; trigger: Re
       .filter((b) => ids.has(b.id))
       .slice(0, 4);
   }, [photos, quote.tags]);
-
-  // Until the user chooses, start from the best-fitting photo.
-  useEffect(() => {
-    if (open && !picked && recommended.length) setBg(recommended[0]);
-  }, [open, picked, recommended]);
 
   // Show only the bundled photos that actually exist.
   useEffect(() => {
@@ -112,7 +105,6 @@ export function QuoteImageDialog({ quote, trigger }: { quote: Quote; trigger: Re
       src: URL.createObjectURL(file),
     };
     setUploads((u) => [...u, next]);
-    setPicked(true);
     setBg(next);
   };
 
@@ -140,7 +132,6 @@ export function QuoteImageDialog({ quote, trigger }: { quote: Quote; trigger: Re
         key={b.id}
         type="button"
         onClick={() => {
-          setPicked(true);
           setBg(b);
         }}
         aria-label={b.label}
