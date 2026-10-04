@@ -30,7 +30,7 @@ A website for collecting quotes that stay with you, discovering them at random, 
 - A pinned quote switches to its translation when you change the language.
 
 ### Save as image
-- From the random quote area or any card, use **Save image** to download a 1080×1080 PNG containing just the quote and its author.
+- Saving an image is only available for the **pinned quote**. Pin a quote and a **Save image** button appears at the top, letting you download a 1080×1080 PNG containing just the quote and its author.
 - Choose from gradient backgrounds or bundled landscape and texture photos; backgrounds that suit the quote's tags are **recommended** first.
 - You can also **upload your own photo** as the background. (Uploaded photos stay in your browser and are never sent to a server.)
 - Long quotes automatically shrink their text to fit.
