@@ -164,6 +164,18 @@ function Shell() {
             </>
           )}
         </div>
+
+        <footer className="mt-16 text-center text-xs text-muted-foreground">
+          Background photos from{" "}
+          <a
+            href="https://unsplash.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 transition hover:text-foreground"
+          >
+            Unsplash
+          </a>
+        </footer>
       </div>
     </main>
   );
