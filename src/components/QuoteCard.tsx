@@ -1,10 +1,9 @@
-import { Heart, Trash2, Pencil, Pin, Download } from "lucide-react";
+import { Heart, Trash2, Pencil, Pin } from "lucide-react";
 import type { Quote } from "@/lib/quotes-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EditQuoteDialog } from "./AddQuoteDialog";
 import { useQuotes } from "@/lib/quotes-context";
-import { QuoteImageDialog } from "./QuoteImageDialog";
 
 export function QuoteCard({
   quote,
@@ -62,20 +61,6 @@ export function QuoteCard({
               }
             />
           </Button>
-          <QuoteImageDialog
-            quote={quote}
-            trigger={
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Save as image"
-                title="Save as image"
-                className="rounded-full text-muted-foreground hover:text-foreground"
-              >
-                <Download />
-              </Button>
-            }
-          />
           <Button
             variant="ghost"
             size="icon"

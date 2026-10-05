@@ -151,9 +151,9 @@ export function RandomQuoteHero({ filters }: { filters: QuoteFilters }) {
               {isFavorite(current.id) ? "Favorited" : "Favorite"}
             </Button>
           )}
-          {current && (
+          {pinnedQuote && (
             <QuoteImageDialog
-              quote={current}
+              quote={pinnedQuote}
               trigger={
                 <Button variant="outline" size="lg" className="rounded-full bg-card/70 backdrop-blur">
                   <Download /> Save image
