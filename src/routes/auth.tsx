@@ -1,10 +1,6 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useEffect, useRef, useState } from "react";
+import { signInWithGoogle, useSession } from "@/lib/session";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -16,49 +12,70 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+type GoogleId = {
+  initialize: (cfg: { client_id: string; callback: (r: { credential: string }) => void }) => void;
+  renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void;
+};
+declare global {
+  interface Window {
+    google?: { accounts: { id: GoogleId } };
+  }
+}
+
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+const GSI_SRC = "https://accounts.google.com/gsi/client";
+
+function loadGsi(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.google) return resolve();
+    const s = document.createElement("script");
+    s.src = GSI_SRC;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Failed to load Google sign-in"));
+    document.head.appendChild(s);
+  });
+}
+
 function AuthPage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { user, ready } = useSession();
+  const btnRef = useRef<HTMLDivElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-      setReady(true);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (ready && user) navigate({ to: "/" });
   }, [ready, user, navigate]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setMsg(null);
-    try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-    } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setBusy(false);
+  useEffect(() => {
+    if (!CLIENT_ID) {
+      setMsg("VITE_GOOGLE_CLIENT_ID is not set");
+      return;
     }
-  };
+    let cancelled = false;
+    loadGsi()
+      .then(() => {
+        if (cancelled || !btnRef.current || !window.google) return;
+        window.google.accounts.id.initialize({
+          client_id: CLIENT_ID,
+          callback: (r) => {
+            setMsg(null);
+            signInWithGoogle(r.credential).catch((e) =>
+              setMsg(e instanceof Error ? e.message : "Something went wrong"),
+            );
+          },
+        });
+        window.google.accounts.id.renderButton(btnRef.current, {
+          theme: "outline",
+          size: "large",
+          shape: "pill",
+        });
+      })
+      .catch((e) => setMsg(e instanceof Error ? e.message : "Something went wrong"));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (ready && user) return <Navigate to="/" />;
 
@@ -66,36 +83,12 @@ function AuthPage() {
     <main className="min-h-screen bg-background">
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
         <div className="rounded-3xl bg-card p-8 shadow-[0_10px_40px_-15px_oklch(0.72_0.11_300_/_0.35)] ring-1 ring-border/60">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {mode === "signin" ? "Welcome back" : "Create your account"}
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Welcome</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Your personal anthology, synced everywhere.
           </p>
-
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            <Button type="submit" disabled={busy} className="w-full rounded-full">
-              {mode === "signin" ? "Sign in" : "Sign up"}
-            </Button>
-          </form>
-
+          <div ref={btnRef} className="mt-6 flex justify-center" />
           {msg && <p className="mt-4 text-center text-sm text-muted-foreground">{msg}</p>}
-
-          <button
-            type="button"
-            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setMsg(null); }}
-            className="mt-6 w-full text-center text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            {mode === "signin" ? "No account yet? Sign up" : "Already have an account? Sign in"}
-          </button>
         </div>
       </div>
     </main>

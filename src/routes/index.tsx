@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { LogIn, LogOut, ShieldCheck, Library, Inbox } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -27,42 +26,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-      setReady(true);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!user) {
-      setIsAdmin(false);
-      return;
-    }
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!cancelled) setIsAdmin(!!data);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  const { user, ready } = useSession();
+  const isAdmin = !!user?.isAdmin;
 
   if (!ready) {
     return (
@@ -98,8 +63,8 @@ function Shell() {
             <p className="truncate text-sm text-muted-foreground">
               {user
                 ? isAdmin
-                  ? `Signed in as ${user.email ?? "admin"} · Admin`
-                  : `Signed in as ${user.email ?? "you"}`
+                  ? `Signed in as ${user.email} · Admin`
+                  : `Signed in as ${user.email}`
                 : "Browsing as guest · favorites are saved on sign-in"}
             </p>
           </div>

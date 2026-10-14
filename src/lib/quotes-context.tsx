@@ -7,8 +7,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { api, type AppUser } from "./api";
+import { signOut as sessionSignOut } from "./session";
 import {
   downloadXlsx,
   parseFromArrayBuffer,
@@ -26,7 +26,6 @@ type AddQuoteInput = {
 
 export type PendingItem = {
   id: string;
-  submitter_id: string;
   submitter_email: string;
   type: "new" | "edit";
   original_quote_id: string | null;
@@ -42,7 +41,7 @@ export type PendingItem = {
 type Ctx = {
   quotes: Quote[];
   loading: boolean;
-  user: User | null;
+  user: AppUser | null;
   isAdmin: boolean;
   favoriteIds: Set<string>;
   isFavorite: (id: string) => boolean;
@@ -72,7 +71,7 @@ export function QuotesProvider({
   isAdmin,
   children,
 }: {
-  user: User | null;
+  user: AppUser | null;
   isAdmin: boolean;
   children: ReactNode;
 }) {
@@ -87,15 +86,12 @@ export function QuotesProvider({
   }, []);
 
   const refresh = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("quotes")
-      .select("id, quote, author, category, language, date_added, translation_group, tags")
-      .order("date_added", { ascending: false });
-    if (error) {
+    try {
+      const { quotes } = await api<{ quotes: Quote[] }>("list");
+      setQuotes(quotes);
+    } catch (error) {
       console.error(error);
       setQuotes([]);
-    } else {
-      setQuotes((data ?? []) as Quote[]);
     }
     setLoading(false);
   }, []);
@@ -105,15 +101,12 @@ export function QuotesProvider({
       setFavoriteIds(new Set());
       return;
     }
-    const { data, error } = await supabase
-      .from("user_favorites")
-      .select("quote_id")
-      .eq("user_id", user.id);
-    if (error) {
+    try {
+      const { ids } = await api<{ ids: string[] }>("favorites");
+      setFavoriteIds(new Set(ids));
+    } catch (error) {
       console.error(error);
-      return;
     }
-    setFavoriteIds(new Set((data ?? []).map((r) => r.quote_id as string)));
   }, [user]);
 
   useEffect(() => {
@@ -137,24 +130,11 @@ export function QuotesProvider({
 
       if (!user) return; // guest: in-memory only
 
-      if (currentlyFav) {
-        const { error } = await supabase
-          .from("user_favorites")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("quote_id", id);
-        if (error) {
-          console.error(error);
-          setFavoriteIds(favoriteIds); // revert
-        }
-      } else {
-        const { error } = await supabase
-          .from("user_favorites")
-          .insert({ user_id: user.id, quote_id: id });
-        if (error) {
-          console.error(error);
-          setFavoriteIds(favoriteIds);
-        }
+      try {
+        await api("setFavorite", { id, on: !currentlyFav });
+      } catch (error) {
+        console.error(error);
+        setFavoriteIds(favoriteIds); // revert
       }
     },
     [favoriteIds, user],
@@ -164,88 +144,39 @@ export function QuotesProvider({
     async (q) => {
       if (!user) return "denied";
       const language = q.language ?? detectLanguage(q.quote);
-      if (!isAdmin) {
-        const { error } = await supabase.from("pending_quotes" as never).insert({
-          submitter_id: user.id,
-          submitter_email: user.email ?? "",
-          type: "new",
-          original_quote_id: null,
-          quote: q.quote,
-          author: q.author,
-          category: q.category,
-          tags: q.tags,
+      try {
+        const res = await api<{ status: "applied" | "pending"; quote?: Quote }>("add", {
+          ...q,
           language,
-        } as never);
-        if (error) {
-          console.error(error);
-          return "denied";
-        }
-        return "pending";
-      }
-      const { data, error } = await supabase
-        .from("quotes")
-        .insert({
-          quote: q.quote,
-          author: q.author,
-          category: q.category,
-          tags: q.tags,
-          language,
-          user_id: user.id,
-        })
-        .select("id, quote, author, category, language, date_added, translation_group, tags")
-        .single();
-      if (error) {
+        });
+        if (res.quote) setQuotes((prev) => [res.quote as Quote, ...prev]);
+        return res.status;
+      } catch (error) {
         console.error(error);
         return "denied";
       }
-      setQuotes((prev) => [data as Quote, ...prev]);
-      return "applied";
     },
-    [user, isAdmin],
+    [user],
   );
 
   const updateQuote: Ctx["updateQuote"] = useCallback(
     async (id, patch) => {
       if (!user) return "denied";
       const language = patch.language ?? detectLanguage(patch.quote);
-      if (!isAdmin) {
-        const { error } = await supabase.from("pending_quotes" as never).insert({
-          submitter_id: user.id,
-          submitter_email: user.email ?? "",
-          type: "edit",
-          original_quote_id: id,
-          quote: patch.quote,
-          author: patch.author,
-          category: patch.category,
-          tags: patch.tags,
+      try {
+        const res = await api<{ status: "applied" | "pending"; quote?: Quote }>("update", {
+          ...patch,
+          id,
           language,
-        } as never);
-        if (error) {
-          console.error(error);
-          return "denied";
-        }
-        return "pending";
-      }
-      const { data, error } = await supabase
-        .from("quotes")
-        .update({
-          quote: patch.quote,
-          author: patch.author,
-          category: patch.category,
-          tags: patch.tags,
-          language,
-        })
-        .eq("id", id)
-        .select("id, quote, author, category, language, date_added, translation_group, tags")
-        .single();
-      if (error) {
+        });
+        if (res.quote) setQuotes((prev) => prev.map((q) => (q.id === id ? (res.quote as Quote) : q)));
+        return res.status;
+      } catch (error) {
         console.error(error);
         return "denied";
       }
-      setQuotes((prev) => prev.map((q) => (q.id === id ? (data as Quote) : q)));
-      return "applied";
     },
-    [user, isAdmin],
+    [user],
   );
 
   const removeQuote: Ctx["removeQuote"] = useCallback(
@@ -253,8 +184,9 @@ export function QuotesProvider({
       if (!isAdmin) return;
       const prev = quotes;
       setQuotes((p) => p.filter((q) => q.id !== id));
-      const { error } = await supabase.from("quotes").delete().eq("id", id);
-      if (error) {
+      try {
+        await api("remove", { id });
+      } catch (error) {
         console.error(error);
         setQuotes(prev);
       }
@@ -268,24 +200,12 @@ export function QuotesProvider({
       const buf = await file.arrayBuffer();
       const parsed = parseFromArrayBuffer(buf);
       if (!parsed.length) return;
-      const rows = parsed.map((q) => ({
-        quote: q.quote,
-        author: q.author,
-        category: q.category,
-        tags: q.tags,
-        language: q.language,
-        date_added: q.date_added,
-        user_id: user.id,
-      }));
-      const { data, error } = await supabase
-        .from("quotes")
-        .insert(rows)
-        .select("id, quote, author, category, language, date_added, translation_group, tags");
-      if (error) {
+      try {
+        const { quotes: added } = await api<{ quotes: Quote[] }>("import", { quotes: parsed });
+        setQuotes((prev) => [...added, ...prev]);
+      } catch (error) {
         console.error(error);
-        return;
       }
-      setQuotes((prev) => [...((data ?? []) as Quote[]), ...prev]);
     },
     [user, isAdmin],
   );
@@ -296,7 +216,7 @@ export function QuotesProvider({
   );
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    sessionSignOut();
   }, []);
 
   const refreshPending = useCallback(async () => {
@@ -304,16 +224,12 @@ export function QuotesProvider({
       setPending([]);
       return;
     }
-    const { data, error } = await supabase
-      .from("pending_quotes" as never)
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
-    if (error) {
+    try {
+      const { items } = await api<{ items: PendingItem[] }>("pending");
+      setPending(items);
+    } catch (error) {
       console.error(error);
-      return;
     }
-    setPending(((data ?? []) as unknown) as PendingItem[]);
   }, [isAdmin]);
 
   useEffect(() => {
@@ -325,55 +241,14 @@ export function QuotesProvider({
       if (!isAdmin || !user) return;
       const item = pending.find((p) => p.id === id);
       if (!item) return;
-      if (item.type === "new") {
-        const { data, error } = await supabase
-          .from("quotes")
-          .insert({
-            quote: item.quote,
-            author: item.author,
-            category: item.category,
-            tags: item.tags ?? [],
-            language: item.language,
-            user_id: item.submitter_id,
-          })
-          .select("id, quote, author, category, language, date_added, translation_group, tags")
-          .single();
-        if (error) {
-          console.error(error);
-          return;
-        }
-        setQuotes((prev) => [data as Quote, ...prev]);
-      } else if (item.original_quote_id) {
-        const { data, error } = await supabase
-          .from("quotes")
-          .update({
-            quote: item.quote,
-            author: item.author,
-            category: item.category,
-            tags: item.tags ?? [],
-            language: item.language,
-          })
-          .eq("id", item.original_quote_id)
-          .select("id, quote, author, category, language, date_added, translation_group, tags")
-          .single();
-        if (error) {
-          console.error(error);
-          return;
-        }
-        setQuotes((prev) =>
-          prev.map((q) => (q.id === item.original_quote_id ? (data as Quote) : q)),
-        );
+      try {
+        const { quote } = await api<{ quote: Quote }>("approve", { id });
+        if (item.type === "new") setQuotes((prev) => [quote, ...prev]);
+        else setQuotes((prev) => prev.map((q) => (q.id === quote.id ? quote : q)));
+        setPending((prev) => prev.filter((p) => p.id !== id));
+      } catch (error) {
+        console.error(error);
       }
-      const { error: upErr } = await supabase
-        .from("pending_quotes" as never)
-        .update({
-          status: "approved",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id,
-        } as never)
-        .eq("id", id);
-      if (upErr) console.error(upErr);
-      setPending((prev) => prev.filter((p) => p.id !== id));
     },
     [isAdmin, user, pending],
   );
@@ -381,19 +256,12 @@ export function QuotesProvider({
   const rejectPending: Ctx["rejectPending"] = useCallback(
     async (id) => {
       if (!isAdmin || !user) return;
-      const { error } = await supabase
-        .from("pending_quotes" as never)
-        .update({
-          status: "rejected",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id,
-        } as never)
-        .eq("id", id);
-      if (error) {
+      try {
+        await api("reject", { id });
+        setPending((prev) => prev.filter((p) => p.id !== id));
+      } catch (error) {
         console.error(error);
-        return;
       }
-      setPending((prev) => prev.filter((p) => p.id !== id));
     },
     [isAdmin, user],
   );

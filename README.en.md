@@ -42,7 +42,7 @@ A website for collecting quotes that stay with you, discovering them at random, 
 
 ## When logged in
 
-- Sign up and sign in with email and password.
+- Sign in with your Google account.
 - **Favorites are saved to your account**, so they persist across refreshes and devices.
 - **Request additions and edits**: regular accounts can't change quotes directly. Submit a new quote or an edit, and it goes live after the administrator reviews it. In the form you can type tags or pick from the grouped tags; the language is detected from the text and can be changed manually.
 - For now, only the administrator can delete quotes.
@@ -57,4 +57,4 @@ A website for collecting quotes that stay with you, discovering them at random, 
 
 - Features may contain bugs and may change over time.
 - Background photos are from [Unsplash](https://unsplash.com).
-- Built by vibe coding with [Lovable](https://lovable.dev), deployed on Vercel, with data stored in Supabase.
+- Built by vibe coding with [Lovable](https://lovable.dev), deployed on Vercel, with data stored in Google Sheets (Apps Script) and Google sign-in.
